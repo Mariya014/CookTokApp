@@ -2,30 +2,63 @@ package com.example.cooktok.ui.screens.home
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
 import com.example.cooktok.R
+import com.example.cooktok.data.local.model.Recipe
+import com.example.cooktok.ui.screens.cuisine.CuisineViewModel
+import com.example.cooktok.ui.screens.recipe.RecipeViewModel
 import com.example.cooktok.ui.theme.PrimaryRedOrange
 import com.example.cooktok.ui.theme.Typography
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun HomeScreen(navController: NavController) {
+fun HomeScreen(
+    navController: NavController,
+    recipeViewModel: RecipeViewModel = hiltViewModel(),
+    cuisineViewModel: CuisineViewModel = hiltViewModel()
+) {
+    val recipes by recipeViewModel.recipes.collectAsState(initial = emptyList())
+    val cuisines by cuisineViewModel.cuisines.collectAsState(initial = emptyList())
+    var selectedCuisineId by remember { mutableStateOf<Int?>(null) }
+
+    // Filter recipes based on selected cuisine
+    val filteredRecipes = remember(recipes, selectedCuisineId) {
+        if (selectedCuisineId == null) {
+            recipes
+        } else {
+            recipes.filter { it.cuisineId == selectedCuisineId }
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -56,105 +89,117 @@ fun HomeScreen(navController: NavController) {
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Hero Image
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(180.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            PrimaryRedOrange.copy(alpha = 0.8f),
-                            PrimaryRedOrange.copy(alpha = 0.4f)
-                        )
-                    )
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Image(
-                painter = painterResource(R.drawable.logo),
-                contentDescription = "Cooking Inspiration",
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
-            Text(
-                text = "Discover Amazing Recipes",
-                style = Typography.headlineSmall.copy(
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold
-                ),
-                modifier = Modifier.padding(16.dp)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(40.dp))
-
-        // Cuisine Button with icon
-        Button(
-            onClick = { navController.navigate("cuisine_screen") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(60.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = PrimaryRedOrange,
-                contentColor = Color.White
+        Text(
+            text = "Browse by Cuisine",
+            style = Typography.titleLarge.copy(
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onBackground
             ),
-            elevation = ButtonDefaults.buttonElevation(
-                defaultElevation = 8.dp,
-                pressedElevation = 4.dp
-            )
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = "Explore Cuisines",
-                    style = Typography.titleLarge.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp
-                    ),
-                    modifier = Modifier.padding(end = 8.dp)
+            // "All" filter chip
+            FilterChip(
+                selected = selectedCuisineId == null,
+                onClick = { selectedCuisineId = null },
+                label = { Text("All") },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = PrimaryRedOrange,
+                    selectedLabelColor = Color.White
                 )
-                Icon(
-                    imageVector = Icons.Default.ArrowForward,
-                    contentDescription = "Explore",
-                    modifier = Modifier.size(24.dp)
+            )
+
+            // Cuisine chips
+            cuisines.forEach { cuisine ->
+                FilterChip(
+                    selected = selectedCuisineId == cuisine.id,
+                    onClick = { selectedCuisineId = cuisine.id },
+                    label = { Text(cuisine.name) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = PrimaryRedOrange,
+                        selectedLabelColor = Color.White
+                    )
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        // Section title
-        Text(
-            text = "Your Recipes",
-            style = Typography.titleLarge.copy(
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
-            ),
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-
-        // Placeholder for Recipes Section with better styling
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(120.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
-            contentAlignment = Alignment.Center
+        // Recipe Grid
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = "Your saved recipes will appear here",
-                style = Typography.bodyMedium.copy(
+            items(filteredRecipes) { recipe ->
+                RecipeCard(recipe = recipe, onClick = {
+                    navController.navigate("recipe_detail/${recipe.id}")
+                })
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+    }
+}
+
+@Composable
+fun RecipeCard(recipe: Recipe, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f)
+                    .background(Color.LightGray)
+            ) {
+                recipe.imageUri?.let { uri ->
+                    Image(
+                        painter = rememberAsyncImagePainter(
+                            ImageRequest.Builder(LocalContext.current)
+                                .data(uri)
+                                .build()
+                        ),
+                        contentDescription = "Recipe Image",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } ?: run {
+                    Icon(
+                        painter = painterResource(R.drawable.recipe_placeholder),
+                        contentDescription = "No Image",
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(32.dp),
+                        tint = Color.Gray
+                    )
+                }
+            }
+
+            Column(modifier = Modifier.padding(8.dp)) {
+                Text(
+                    text = recipe.title,
+                    style = Typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "${recipe.cookingTime} min • ${recipe.difficulty}",
+                    style = Typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
-                ),
-                textAlign = TextAlign.Center
-            )
+                )
+            }
         }
     }
 }

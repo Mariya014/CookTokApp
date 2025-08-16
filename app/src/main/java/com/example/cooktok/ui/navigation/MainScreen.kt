@@ -69,7 +69,19 @@ fun MainScreen(navController: NavHostController) {
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(BottomNavItem.Home.route) {
-                HomeScreen(navController = bottomNavController)
+                val context = LocalContext.current
+                val db = remember { AppDatabase.getDatabase(context) }
+                val recipeRepository = remember { RecipeRepository(db.recipeDao()) }
+                val recipeViewModel: RecipeViewModel = viewModel(
+                    factory = RecipeViewModelFactory(recipeRepository)
+                )
+
+                val cuisineRepository = remember { CuisineRepository(db.cuisineDao()) }
+                val cuisineViewModel: CuisineViewModel = viewModel(
+                    factory = CuisineViewModelFactory(cuisineRepository)
+                )
+
+                HomeScreen(navController = bottomNavController,recipeViewModel=recipeViewModel, cuisineViewModel=cuisineViewModel)
             }
 
             composable(BottomNavItem.AddRecipe.route) {
