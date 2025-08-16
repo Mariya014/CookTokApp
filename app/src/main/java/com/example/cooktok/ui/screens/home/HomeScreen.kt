@@ -9,8 +9,10 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material3.*
+import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -28,6 +30,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
@@ -49,6 +52,9 @@ fun HomeScreen(
     val recipes by recipeViewModel.recipes.collectAsState(initial = emptyList())
     val cuisines by cuisineViewModel.cuisines.collectAsState(initial = emptyList())
     var selectedCuisineId by remember { mutableStateOf<Int?>(null) }
+
+    var showRecipeDialog by remember { mutableStateOf(false) }
+    var selectedRecipe by remember { mutableStateOf<Recipe?>(null) }
 
     // Filter recipes based on selected cuisine
     val filteredRecipes = remember(recipes, selectedCuisineId) {
@@ -85,6 +91,45 @@ fun HomeScreen(
                     color = MaterialTheme.colorScheme.onBackground
                 )
             )
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Cuisine Button with icon
+        Button(
+            onClick = { navController.navigate("cuisine_screen") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(60.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = PrimaryRedOrange,
+                contentColor = Color.White
+            ),
+            elevation = ButtonDefaults.buttonElevation(
+                defaultElevation = 8.dp,
+                pressedElevation = 4.dp
+            )
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "Manage Cuisines",
+                    style = Typography.titleLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp
+                    ),
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = "Explore",
+                    modifier = Modifier.size(24.dp)
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -139,12 +184,21 @@ fun HomeScreen(
         ) {
             items(filteredRecipes) { recipe ->
                 RecipeCard(recipe = recipe, onClick = {
-                    navController.navigate("recipe_detail/${recipe.id}")
+                    selectedRecipe = recipe
+                    showRecipeDialog = true
                 })
             }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
+
+        // Show recipe details dialog
+        if (showRecipeDialog && selectedRecipe != null) {
+            RecipeDetailsDialog(
+                recipe = selectedRecipe!!,
+                onDismiss = { showRecipeDialog = false }
+            )
+        }
     }
 }
 
@@ -165,17 +219,6 @@ fun RecipeCard(recipe: Recipe, onClick: () -> Unit) {
                     .background(Color.LightGray)
             ) {
                 recipe.imageUri?.let { uri ->
-//                    Image(
-//                        painter = rememberAsyncImagePainter(
-//                            ImageRequest.Builder(LocalContext.current)
-//                                .data(uri)
-//                                .build()
-//                        ),
-//                        contentDescription = "Recipe Image",
-//                        contentScale = ContentScale.Crop,
-//                        modifier = Modifier.fillMaxSize()
-//                    )
-
                     Image(
                         painter = rememberAsyncImagePainter(recipe.imageUri),
                         contentDescription = "Recipe Image",
@@ -210,4 +253,142 @@ fun RecipeCard(recipe: Recipe, onClick: () -> Unit) {
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RecipeDetailsDialog(
+    recipe: Recipe,
+    onDismiss: () -> Unit
+) {
+    BasicAlertDialog(
+        onDismissRequest = onDismiss,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        properties = DialogProperties(), content = {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    // Recipe Image
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp)
+                            .background(Color.LightGray)
+                    ) {
+                        recipe.imageUri?.let { uri ->
+                            Image(
+                                painter = rememberAsyncImagePainter(
+                                    ImageRequest.Builder(LocalContext.current)
+                                        .data(uri)
+                                        .build()
+                                ),
+                                contentDescription = "Recipe Image",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } ?: run {
+                            Icon(
+                                painter = painterResource(R.drawable.recipe_placeholder),
+                                contentDescription = "No Image",
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(32.dp),
+                                tint = Color.Gray
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Recipe Title
+                    Text(
+                        text = recipe.title,
+                        style = Typography.headlineSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Basic Info
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "⏱️ ${recipe.cookingTime} min",
+                            style = Typography.bodyMedium
+                        )
+                        Text(
+                            text = "⚡ ${recipe.difficulty}",
+                            style = Typography.bodyMedium
+                        )
+
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Ingredients
+                    Text(
+                        text = "Tags",
+                        style = Typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = recipe.tags,
+                        style = Typography.bodyMedium
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Ingredients
+                    Text(
+                        text = "Ingredients",
+                        style = Typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = recipe.ingredients,
+                        style = Typography.bodyMedium
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Instructions
+                    Text(
+                        text = "Instructions",
+                        style = Typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = recipe.steps,
+                        style = Typography.bodyMedium
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Close Button
+                    Button(
+                        onClick = onDismiss,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = PrimaryRedOrange,
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Text("Close")
+                    }
+                }
+            }
+        })
 }
