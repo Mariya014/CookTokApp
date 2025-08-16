@@ -165,16 +165,24 @@ fun RecipeCard(recipe: Recipe, onClick: () -> Unit) {
                     .background(Color.LightGray)
             ) {
                 recipe.imageUri?.let { uri ->
+//                    Image(
+//                        painter = rememberAsyncImagePainter(
+//                            ImageRequest.Builder(LocalContext.current)
+//                                .data(uri)
+//                                .build()
+//                        ),
+//                        contentDescription = "Recipe Image",
+//                        contentScale = ContentScale.Crop,
+//                        modifier = Modifier.fillMaxSize()
+//                    )
+
                     Image(
-                        painter = rememberAsyncImagePainter(
-                            ImageRequest.Builder(LocalContext.current)
-                                .data(uri)
-                                .build()
-                        ),
+                        painter = rememberAsyncImagePainter(recipe.imageUri),
                         contentDescription = "Recipe Image",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
+
                 } ?: run {
                     Icon(
                         painter = painterResource(R.drawable.recipe_placeholder),

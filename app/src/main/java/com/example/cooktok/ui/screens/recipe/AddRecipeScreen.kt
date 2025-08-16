@@ -32,6 +32,7 @@ import coil.request.ImageRequest
 import com.example.cooktok.data.local.model.Recipe
 import com.example.cooktok.ui.screens.cuisine.CuisineViewModel
 import com.example.cooktok.ui.theme.PrimaryRedOrange
+import com.example.cooktok.utils.persistImage
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -60,15 +61,21 @@ fun AddRecipeScreen(
     // Fetch cuisines
     val cuisines by cuisineViewModel.cuisines.collectAsState(initial = emptyList())
 
-    // Image picker
+// Context for saving image
     val context = LocalContext.current
+
+// Image picker
     val imagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
         uri?.let {
-            recipeImageUri = it.toString()
+            // Save the picked image permanently and get file path
+            val savedPath = persistImage(context, it)
+            recipeImageUri = savedPath
         }
     }
+
+
 
     // Difficulties
     val difficulties = listOf("Easy", "Medium", "Hard")
