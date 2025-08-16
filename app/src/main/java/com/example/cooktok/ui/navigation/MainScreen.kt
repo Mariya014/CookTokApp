@@ -13,10 +13,14 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.*
 import com.example.cooktok.data.local.AppDatabase
 import com.example.cooktok.data.repository.CuisineRepository
+import com.example.cooktok.data.repository.RecipeRepository
 import com.example.cooktok.ui.screens.cuisine.CuisineScreen
 import com.example.cooktok.ui.screens.cuisine.CuisineViewModel
 import com.example.cooktok.ui.screens.cuisine.CuisineViewModelFactory
 import com.example.cooktok.ui.screens.home.HomeScreen
+import com.example.cooktok.ui.screens.recipe.AddRecipeScreen
+import com.example.cooktok.ui.screens.recipe.RecipeViewModel
+import com.example.cooktok.ui.screens.recipe.RecipeViewModelFactory
 
 @Composable
 fun MainScreen(navController: NavHostController) {
@@ -58,17 +62,36 @@ fun MainScreen(navController: NavHostController) {
                 }
             }
         }
-    )
-    { innerPadding ->
+    ) { innerPadding ->
         NavHost(
             navController = bottomNavController,
             startDestination = BottomNavItem.Home.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable("home") {
+            composable(BottomNavItem.Home.route) {
                 HomeScreen(navController = bottomNavController)
             }
-            composable(BottomNavItem.AddRecipe.route) { Text("🍳 Add Recipe Screen") }
+
+            composable(BottomNavItem.AddRecipe.route) {
+                val context = LocalContext.current
+                val db = remember { AppDatabase.getDatabase(context) }
+                val recipeRepository = remember { RecipeRepository(db.recipeDao()) }
+                val recipeViewModel: RecipeViewModel = viewModel(
+                    factory = RecipeViewModelFactory(recipeRepository)
+                )
+
+                val cuisineRepository = remember { CuisineRepository(db.cuisineDao()) }
+                val cuisineViewModel: CuisineViewModel = viewModel(
+                    factory = CuisineViewModelFactory(cuisineRepository)
+                )
+
+                AddRecipeScreen(
+                    recipeViewModel = recipeViewModel,
+                    cuisineViewModel = cuisineViewModel,
+                    onNavigateBack = { bottomNavController.navigateUp() }
+                )
+            }
+
             composable(BottomNavItem.MealPlanner.route) { Text("📅 Meal Planner Screen") }
             composable(BottomNavItem.Profile.route) { Text("👤 Profile Screen") }
 
