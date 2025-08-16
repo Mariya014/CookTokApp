@@ -4,10 +4,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.*
+import com.example.cooktok.data.local.AppDatabase
+import com.example.cooktok.data.repository.CuisineRepository
+import com.example.cooktok.ui.screens.cuisine.CuisineScreen
+import com.example.cooktok.ui.screens.cuisine.CuisineViewModel
+import com.example.cooktok.ui.screens.cuisine.CuisineViewModelFactory
+import com.example.cooktok.ui.screens.home.HomeScreen
 
 @Composable
 fun MainScreen(navController: NavHostController) {
@@ -56,10 +65,23 @@ fun MainScreen(navController: NavHostController) {
             startDestination = BottomNavItem.Home.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(BottomNavItem.Home.route) { Text("🏠 Home Screen") }
+            composable("home") {
+                HomeScreen(navController = bottomNavController)
+            }
             composable(BottomNavItem.AddRecipe.route) { Text("🍳 Add Recipe Screen") }
             composable(BottomNavItem.MealPlanner.route) { Text("📅 Meal Planner Screen") }
             composable(BottomNavItem.Profile.route) { Text("👤 Profile Screen") }
+
+            composable("cuisine_screen") {
+                val context = LocalContext.current
+                val db = remember { AppDatabase.getDatabase(context) }
+                val cuisineRepository = remember { CuisineRepository(db.cuisineDao()) }
+                val cuisineViewModel: CuisineViewModel = viewModel(
+                    factory = CuisineViewModelFactory(cuisineRepository)
+                )
+
+                CuisineScreen(viewModel = cuisineViewModel)
+            }
         }
     }
 }

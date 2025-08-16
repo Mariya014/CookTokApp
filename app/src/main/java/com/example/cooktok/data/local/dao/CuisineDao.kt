@@ -5,9 +5,16 @@ import com.example.cooktok.data.local.model.Cuisine
 
 @Dao
 interface CuisineDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertCuisine(cuisine: Cuisine): Long
 
     @Query("SELECT * FROM cuisines")
     suspend fun getAllCuisines(): List<Cuisine>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertCuisine(cuisine: Cuisine)
+
+    @Update
+    suspend fun updateCuisine(cuisine: Cuisine)
+
+    @Delete
+    suspend fun deleteCuisine(cuisine: Cuisine)
 }

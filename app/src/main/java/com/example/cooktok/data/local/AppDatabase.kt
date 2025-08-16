@@ -1,18 +1,34 @@
 package com.example.cooktok.data.local
 
+import android.content.Context
 import androidx.room.Database
+import androidx.room.Room
 import androidx.room.RoomDatabase
-import com.example.cooktok.data.local.dao.*
-import com.example.cooktok.data.local.model.*
+import com.example.cooktok.data.local.dao.CuisineDao
+import com.example.cooktok.data.local.dao.UserDao
+import com.example.cooktok.data.local.model.Cuisine
+import com.example.cooktok.data.local.model.User
 
-@Database(
-    entities = [User::class, Recipe::class, Cuisine::class, SavedRecipe::class],
-    version = 1,
-    exportSchema = false
-)
+@Database(entities = [User::class, Cuisine::class], version = 2)
 abstract class AppDatabase : RoomDatabase() {
+
     abstract fun userDao(): UserDao
-    abstract fun recipeDao(): RecipeDao
     abstract fun cuisineDao(): CuisineDao
-    abstract fun savedRecipeDao(): SavedRecipeDao
+
+    companion object {
+        @Volatile
+        private var INSTANCE: AppDatabase? = null
+
+        fun getDatabase(context: Context): AppDatabase {
+            return INSTANCE ?: synchronized(this) {
+                val instance = Room.databaseBuilder(
+                    context.applicationContext,
+                    AppDatabase::class.java,
+                    "cooktok_db"
+                ).build()
+                INSTANCE = instance
+                instance
+            }
+        }
+    }
 }
