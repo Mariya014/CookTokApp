@@ -1,11 +1,20 @@
 package com.example.cooktok.data.local.dao
 
-import androidx.room.Entity
-import androidx.room.PrimaryKey
+import androidx.room.*
+import com.example.cooktok.data.local.model.SavedRecipe
 
-@Entity(tableName = "saved_recipes")
-data class SavedRecipe(
-    @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val userId: Int,
-    val recipeId: Int
-)
+@Dao
+interface SavedRecipeDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun saveRecipe(savedRecipe: SavedRecipe): Long
+
+    @Query("""
+        SELECT recipes.* FROM recipes 
+        INNER JOIN saved_recipes ON recipes.id = saved_recipes.recipeId
+        WHERE saved_recipes.userId = :userId
+    """)
+    suspend fun getSavedRecipesByUser(userId: Int): List<com.example.cooktok.data.local.model.Recipe>
+
+    @Query("DELETE FROM saved_recipes WHERE userId = :userId AND recipeId = :recipeId")
+    suspend fun removeSavedRecipe(userId: Int, recipeId: Int)
+}
