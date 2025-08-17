@@ -10,16 +10,11 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.*
-import androidx.compose.material3.BasicAlertDialog
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -27,47 +22,59 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
-import coil.request.ImageRequest
 import com.example.cooktok.R
 import com.example.cooktok.data.local.model.Recipe
+import com.example.cooktok.data.local.model.SavedRecipe
+import com.example.cooktok.ui.navigation.NavRoutes
+import com.example.cooktok.ui.screens.auth.AuthViewModel
 import com.example.cooktok.ui.screens.cuisine.CuisineViewModel
 import com.example.cooktok.ui.screens.recipe.RecipeViewModel
+import com.example.cooktok.ui.screens.recipe.SavedRecipeViewModel
 import com.example.cooktok.ui.theme.PrimaryRedOrange
 import com.example.cooktok.ui.theme.Typography
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     navController: NavController,
     recipeViewModel: RecipeViewModel = hiltViewModel(),
-    cuisineViewModel: CuisineViewModel = hiltViewModel()
+    cuisineViewModel: CuisineViewModel = hiltViewModel(),
+    savedRecipeViewModel: SavedRecipeViewModel = hiltViewModel(),
+    authViewModel: AuthViewModel = hiltViewModel()
 ) {
+    // Load initial data
     LaunchedEffect(Unit) {
         cuisineViewModel.loadCuisines()
     }
 
+    // Collect state from ViewModels
     val recipes by recipeViewModel.recipes.collectAsState(initial = emptyList())
     val cuisines by cuisineViewModel.cuisines.collectAsState(initial = emptyList())
-    var selectedCuisineId by remember { mutableStateOf<Int?>(null) }
+    val currentUser by authViewModel.currentUser.collectAsState()
+    val savedRecipes by savedRecipeViewModel.savedRecipes.collectAsState()
 
+    // Local state
+    var selectedCuisineId by remember { mutableStateOf<Int?>(null) }
     var showRecipeDialog by remember { mutableStateOf(false) }
     var selectedRecipe by remember { mutableStateOf<Recipe?>(null) }
 
+    // Load saved recipes when user changes
+    LaunchedEffect(currentUser) {
+        currentUser?.let { user ->
+            savedRecipeViewModel.loadSavedRecipes(user.id)
+        }
+    }
+
     // Filter recipes based on selected cuisine
     val filteredRecipes = remember(recipes, selectedCuisineId) {
-        if (selectedCuisineId == null) {
-            recipes
-        } else {
-            recipes.filter { it.cuisineId == selectedCuisineId }
-        }
+        if (selectedCuisineId == null) recipes
+        else recipes.filter { it.cuisineId == selectedCuisineId }
     }
 
     Column(
@@ -78,6 +85,7 @@ fun HomeScreen(
     ) {
         Spacer(modifier = Modifier.height(40.dp))
 
+        // Header
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
@@ -99,7 +107,7 @@ fun HomeScreen(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Cuisine Button with icon
+        // Cuisine Management Button
         Button(
             onClick = { navController.navigate("cuisine_screen") },
             modifier = Modifier
@@ -122,10 +130,7 @@ fun HomeScreen(
             ) {
                 Text(
                     text = "Manage Cuisines",
-                    style = Typography.titleLarge.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp
-                    ),
+                    style = Typography.titleLarge.copy(fontSize = 18.sp),
                     modifier = Modifier.padding(end = 8.dp)
                 )
                 Icon(
@@ -138,6 +143,7 @@ fun HomeScreen(
 
         Spacer(modifier = Modifier.height(32.dp))
 
+        // Cuisine Filter Section
         Text(
             text = "Browse by Cuisine",
             style = Typography.titleLarge.copy(
@@ -187,19 +193,59 @@ fun HomeScreen(
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             items(filteredRecipes) { recipe ->
-                RecipeCard(recipe = recipe, onClick = {
-                    selectedRecipe = recipe
-                    showRecipeDialog = true
-                })
+                val isSaved = savedRecipes.any { it.id == recipe.id }
+
+                RecipeCard(
+                    recipe = recipe,
+                    onClick = {
+                        selectedRecipe = recipe
+                        showRecipeDialog = true
+                    },
+                    isSaved = isSaved,
+                    onSaveClick = {
+                        currentUser?.let { user ->
+                            if (isSaved) {
+                                savedRecipeViewModel.deleteRecipe(
+                                    SavedRecipe(
+                                        userId = user.id,
+                                        recipeId = recipe.id
+                                    )
+                                )
+                            } else {
+                                savedRecipeViewModel.saveRecipe(user.id, recipe.id)
+                            }
+                        } ?: run {
+                            navController.navigate(NavRoutes.Login.route)
+                        }
+                    }
+                )
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Show recipe details dialog
+        // Recipe Details Dialog
         if (showRecipeDialog && selectedRecipe != null) {
+            val isRecipeSaved = savedRecipes.any { it.id == selectedRecipe!!.id }
+
             RecipeDetailsDialog(
                 recipe = selectedRecipe!!,
+                isSaved = isRecipeSaved,
+                onSaveClick = {
+                    currentUser?.let { user ->
+                        if (isRecipeSaved) {
+                            savedRecipeViewModel.deleteRecipe(
+                                SavedRecipe(
+                                    userId = user.id,
+                                    recipeId = selectedRecipe!!.id
+                                )
+                            )
+                        } else {
+                            savedRecipeViewModel.saveRecipe(user.id, selectedRecipe!!.id)
+                        }
+                    } ?: run {
+                        navController.navigate(NavRoutes.Login.route)
+                        showRecipeDialog = false
+                    }
+                },
                 onDismiss = { showRecipeDialog = false }
             )
         }
@@ -207,7 +253,12 @@ fun HomeScreen(
 }
 
 @Composable
-fun RecipeCard(recipe: Recipe, onClick: () -> Unit) {
+fun RecipeCard(
+    recipe: Recipe,
+    onClick: () -> Unit,
+    isSaved: Boolean,
+    onSaveClick: () -> Unit
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -215,44 +266,59 @@ fun RecipeCard(recipe: Recipe, onClick: () -> Unit) {
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Column {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-                    .background(Color.LightGray)
-            ) {
-                recipe.imageUri?.let { uri ->
-                    Image(
-                        painter = rememberAsyncImagePainter(recipe.imageUri),
-                        contentDescription = "Recipe Image",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
+        Box {
+            Column {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1f)
+                        .background(Color.LightGray)
+                ) {
+                    recipe.imageUri?.let { uri ->
+                        Image(
+                            painter = rememberAsyncImagePainter(uri),
+                            contentDescription = "Recipe Image",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } ?: run {
+                        Icon(
+                            painter = painterResource(R.drawable.recipe_placeholder),
+                            contentDescription = "No Image",
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(32.dp),
+                            tint = Color.Gray
+                        )
+                    }
+                }
 
-                } ?: run {
-                    Icon(
-                        painter = painterResource(R.drawable.recipe_placeholder),
-                        contentDescription = "No Image",
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(32.dp),
-                        tint = Color.Gray
+                Column(modifier = Modifier.padding(8.dp)) {
+                    Text(
+                        text = recipe.title,
+                        style = Typography.titleMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "${recipe.cookingTime} min • ${recipe.difficulty}",
+                        style = Typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
 
-            Column(modifier = Modifier.padding(8.dp)) {
-                Text(
-                    text = recipe.title,
-                    style = Typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = "${recipe.cookingTime} min • ${recipe.difficulty}",
-                    style = Typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+            // Save icon button
+            IconButton(
+                onClick = { onSaveClick() },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp)
+            ) {
+                Icon(
+                    imageVector = if (isSaved) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                    contentDescription = if (isSaved) "Remove from saved" else "Save recipe",
+                    tint = if (isSaved) PrimaryRedOrange else MaterialTheme.colorScheme.onSurface
                 )
             }
         }
@@ -263,136 +329,155 @@ fun RecipeCard(recipe: Recipe, onClick: () -> Unit) {
 @Composable
 fun RecipeDetailsDialog(
     recipe: Recipe,
+    isSaved: Boolean,
+    onSaveClick: () -> Unit,
     onDismiss: () -> Unit
 ) {
     BasicAlertDialog(
         onDismissRequest = onDismiss,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        properties = DialogProperties(), content = {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp)
+        modifier = Modifier.padding(16.dp)
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
             ) {
-                Column(
+                // Recipe Image
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp)
+                        .height(200.dp)
+                        .background(Color.LightGray)
                 ) {
-                    // Recipe Image
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp)
-                            .background(Color.LightGray)
-                    ) {
-                        recipe.imageUri?.let { uri ->
-                            Image(
-                                painter = rememberAsyncImagePainter(
-                                    ImageRequest.Builder(LocalContext.current)
-                                        .data(uri)
-                                        .build()
-                                ),
-                                contentDescription = "Recipe Image",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        } ?: run {
-                            Icon(
-                                painter = painterResource(R.drawable.recipe_placeholder),
-                                contentDescription = "No Image",
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(32.dp),
-                                tint = Color.Gray
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Recipe Title
-                    Text(
-                        text = recipe.title,
-                        style = Typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Basic Info
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "⏱️ ${recipe.cookingTime} min",
-                            style = Typography.bodyMedium
+                    recipe.imageUri?.let { uri ->
+                        Image(
+                            painter = rememberAsyncImagePainter(uri),
+                            contentDescription = "Recipe Image",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
                         )
-                        Text(
-                            text = "⚡ ${recipe.difficulty}",
-                            style = Typography.bodyMedium
+                    } ?: run {
+                        Icon(
+                            painter = painterResource(R.drawable.recipe_placeholder),
+                            contentDescription = "No Image",
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(32.dp),
+                            tint = Color.Gray
                         )
-
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Ingredients
-                    Text(
-                        text = "Tags",
-                        style = Typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = recipe.tags,
-                        style = Typography.bodyMedium
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Ingredients
-                    Text(
-                        text = "Ingredients",
-                        style = Typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = recipe.ingredients,
-                        style = Typography.bodyMedium
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Instructions
-                    Text(
-                        text = "Instructions",
-                        style = Typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = recipe.steps,
-                        style = Typography.bodyMedium
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Close Button
-                    Button(
-                        onClick = onDismiss,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = PrimaryRedOrange,
-                            contentColor = Color.White
-                        )
-                    ) {
-                        Text("Close")
                     }
                 }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Recipe Title
+                Text(
+                    text = recipe.title,
+                    style = Typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Basic Info
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "⏱️ ${recipe.cookingTime} min",
+                        style = Typography.bodyMedium
+                    )
+                    Text(
+                        text = "⚡ ${recipe.difficulty}",
+                        style = Typography.bodyMedium
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Tags
+                Text(
+                    text = "Tags",
+                    style = Typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = recipe.tags,
+                    style = Typography.bodyMedium
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Ingredients
+                Text(
+                    text = "Ingredients",
+                    style = Typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = recipe.ingredients,
+                    style = Typography.bodyMedium
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Instructions
+                Text(
+                    text = "Instructions",
+                    style = Typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = recipe.steps,
+                    style = Typography.bodyMedium
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Save Button
+                Button(
+                    onClick = onSaveClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isSaved) MaterialTheme.colorScheme.surfaceVariant
+                        else PrimaryRedOrange,
+                        contentColor = if (isSaved) MaterialTheme.colorScheme.onSurfaceVariant
+                        else Color.White
+                    )
+                ) {
+                    Icon(
+                        imageVector = if (isSaved) Icons.Filled.Bookmark else Icons.Default.Bookmark,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (isSaved) "Saved" else "Save Recipe")
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Close Button
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                ) {
+                    Text("Close")
+                }
             }
-        })
+        }
+    }
 }
