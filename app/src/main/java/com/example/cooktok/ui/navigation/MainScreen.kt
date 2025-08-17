@@ -125,7 +125,8 @@ fun MainScreen(navController: NavHostController, authViewModel: AuthViewModel) {
                 AddRecipeScreen(
                     recipeViewModel = recipeViewModel,
                     cuisineViewModel = cuisineViewModel,
-                    onNavigateBack = { bottomNavController.navigateUp() }
+                    onNavigateBack = { bottomNavController.navigateUp() },
+                    authViewModel = authViewModel
                 )
             }
 
