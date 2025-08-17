@@ -53,9 +53,7 @@ class MainActivity : ComponentActivity() {
                                     popUpTo(NavRoutes.Login.route) { inclusive = true }
                                 }
                             },
-                            onNavigateToSignup = {
-                                navController.navigate(NavRoutes.Signup.route)
-                            }
+                            onNavigateToSignup = { navController.navigate(NavRoutes.Signup.route) }
                         )
                     }
 
@@ -67,9 +65,7 @@ class MainActivity : ComponentActivity() {
                                     popUpTo(NavRoutes.Signup.route) { inclusive = true }
                                 }
                             },
-                            onNavigateToLogin = {
-                                navController.popBackStack()
-                            }
+                            onNavigateToLogin = { navController.popBackStack() }
                         )
                     }
 

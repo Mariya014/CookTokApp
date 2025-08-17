@@ -30,6 +30,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.example.cooktok.data.local.model.Recipe
+import com.example.cooktok.ui.screens.auth.AuthViewModel
 import com.example.cooktok.ui.screens.cuisine.CuisineViewModel
 import com.example.cooktok.ui.theme.PrimaryRedOrange
 import com.example.cooktok.utils.persistImage
@@ -39,8 +40,13 @@ import com.example.cooktok.utils.persistImage
 fun AddRecipeScreen(
     recipeViewModel: RecipeViewModel = hiltViewModel(),
     cuisineViewModel: CuisineViewModel = hiltViewModel(),
-    onNavigateBack: () -> Unit = {}
-) {
+    onNavigateBack: () -> Unit = {},
+    authViewModel: AuthViewModel,
+
+    ) {
+
+    val currentUser by authViewModel.currentUser.collectAsState()
+
     // Form state
     var recipeTitle by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
@@ -410,7 +416,7 @@ fun AddRecipeScreen(
                 Button(
                     onClick = {
                         val newRecipe = Recipe(
-                            userId = 1, // TODO: Replace with actual user ID
+                            userId = currentUser?.id ?: 0,
                             imageUri = recipeImageUri,
                             title = recipeTitle,
                             description = description,
