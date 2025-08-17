@@ -149,7 +149,10 @@ fun MainScreen(navController: NavHostController, authViewModel: AuthViewModel) {
                     factory = CuisineViewModelFactory(cuisineRepository)
                 )
 
-                CuisineScreen(viewModel = cuisineViewModel)
+                CuisineScreen(
+                    viewModel = cuisineViewModel,
+                    onNavigateBack = { bottomNavController.navigateUp() }
+                )
             }
         }
     }

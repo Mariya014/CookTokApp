@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material3.*
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -49,6 +50,10 @@ fun HomeScreen(
     recipeViewModel: RecipeViewModel = hiltViewModel(),
     cuisineViewModel: CuisineViewModel = hiltViewModel()
 ) {
+//    LaunchedEffect(Unit) {
+//        cuisineViewModel.loadCuisines()
+//    }
+
     val recipes by recipeViewModel.recipes.collectAsState(initial = emptyList())
     val cuisines by cuisineViewModel.cuisines.collectAsState(initial = emptyList())
     var selectedCuisineId by remember { mutableStateOf<Int?>(null) }
@@ -73,7 +78,6 @@ fun HomeScreen(
     ) {
         Spacer(modifier = Modifier.height(40.dp))
 
-        // Welcome Message with logo
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()

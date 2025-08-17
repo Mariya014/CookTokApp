@@ -6,6 +6,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.AddToHomeScreen
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -15,16 +17,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
+import com.example.cooktok.R
 import com.example.cooktok.data.local.model.Cuisine
 import com.example.cooktok.ui.theme.PrimaryRedOrange
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CuisineScreen(viewModel: CuisineViewModel) {
+fun CuisineScreen(
+    viewModel: CuisineViewModel,
+    onNavigateBack: () -> Unit = {}
+) {
     val cuisines by viewModel.cuisines.collectAsState()
 
     var showAddDialog by remember { mutableStateOf(false) }
@@ -42,6 +50,19 @@ fun CuisineScreen(viewModel: CuisineViewModel) {
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     )
+                },
+                navigationIcon = {
+                    IconButton(
+                        onClick = {
+                            onNavigateBack()
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Home",
+                            tint = Color.White
+                        )
+                    }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = PrimaryRedOrange,
@@ -62,7 +83,7 @@ fun CuisineScreen(viewModel: CuisineViewModel) {
                 )
             }
         }
-    ) { padding ->
+    )  { padding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
