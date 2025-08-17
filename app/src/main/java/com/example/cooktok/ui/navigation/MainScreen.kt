@@ -3,6 +3,7 @@ package com.example.cooktok.ui.navigation
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -13,17 +14,24 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.*
 import com.example.cooktok.data.local.AppDatabase
 import com.example.cooktok.data.repository.CuisineRepository
+import com.example.cooktok.data.repository.MealPlanRepository
 import com.example.cooktok.data.repository.RecipeRepository
+import com.example.cooktok.data.repository.UserRepository
+import com.example.cooktok.ui.screens.auth.AuthViewModel
+import com.example.cooktok.ui.screens.auth.AuthViewModelFactory
 import com.example.cooktok.ui.screens.cuisine.CuisineScreen
 import com.example.cooktok.ui.screens.cuisine.CuisineViewModel
 import com.example.cooktok.ui.screens.cuisine.CuisineViewModelFactory
 import com.example.cooktok.ui.screens.home.HomeScreen
+import com.example.cooktok.ui.screens.mealPlan.MealPlanViewModel
+import com.example.cooktok.ui.screens.mealPlan.MealPlanViewModelFactory
+import com.example.cooktok.ui.screens.mealPlan.MealPlannerScreen
 import com.example.cooktok.ui.screens.recipe.AddRecipeScreen
 import com.example.cooktok.ui.screens.recipe.RecipeViewModel
 import com.example.cooktok.ui.screens.recipe.RecipeViewModelFactory
 
 @Composable
-fun MainScreen(navController: NavHostController) {
+fun MainScreen(navController: NavHostController, authViewModel: AuthViewModel) {
     val bottomNavController = rememberNavController()
     val items = listOf(
         BottomNavItem.Home,
@@ -104,7 +112,33 @@ fun MainScreen(navController: NavHostController) {
                 )
             }
 
-            composable(BottomNavItem.MealPlanner.route) { Text("📅 Meal Planner Screen") }
+            composable(BottomNavItem.MealPlanner.route) {
+                val context = LocalContext.current
+                val db = remember { AppDatabase.getDatabase(context) }
+                val recipeRepository = remember { RecipeRepository(db.recipeDao()) }
+                val mealPlanRepository = remember { MealPlanRepository(db.mealPlanDao()) }
+
+                val recipeViewModel: RecipeViewModel = viewModel(
+                    factory = RecipeViewModelFactory(recipeRepository)
+                )
+                val mealPlanViewModel: MealPlanViewModel = viewModel(
+                    factory = MealPlanViewModelFactory(mealPlanRepository)
+                )
+
+
+                val currentUser by authViewModel.currentUser.collectAsState()
+                val recipes by recipeViewModel.recipes.collectAsState()
+
+                if (currentUser != null) {
+                    MealPlannerScreen(
+                        mealPlanViewModel = mealPlanViewModel,
+                        recipes = recipes,
+                        userId = currentUser!!.id
+                    )
+                } else {
+                    Text("⚠ Please log in to use Meal Planner")
+                }
+            }
             composable(BottomNavItem.Profile.route) { Text("👤 Profile Screen") }
 
             composable("cuisine_screen") {

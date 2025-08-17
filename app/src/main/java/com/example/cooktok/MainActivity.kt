@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.room.Room
 import androidx.navigation.compose.*
@@ -28,26 +29,26 @@ class MainActivity : ComponentActivity() {
         ).build()
 
         val userRepository = UserRepository(db.userDao())
-
         val authFactory = AuthViewModelFactory(userRepository)
 
         setContent {
             CookTokTheme {
+                // Create the AuthViewModel at the root level
+                val authViewModel: AuthViewModel = viewModel(factory = authFactory)
                 val navController = rememberNavController()
-                var isLoggedIn by remember { mutableStateOf(false) }
+
+                // Observe the auth state - no need for derivedStateOf here
+                val currentUser by authViewModel.currentUser.collectAsState()
+                val isLoggedIn = currentUser != null
 
                 NavHost(
                     navController = navController,
                     startDestination = if (isLoggedIn) NavRoutes.Main.route else NavRoutes.Login.route
                 ) {
-
                     composable(NavRoutes.Login.route) {
-                        val authViewModel: AuthViewModel = viewModel(factory = authFactory)
-
                         LoginScreen(
                             authViewModel = authViewModel,
                             onLoginSuccess = {
-                                isLoggedIn = true
                                 navController.navigate(NavRoutes.Main.route) {
                                     popUpTo(NavRoutes.Login.route) { inclusive = true }
                                 }
@@ -59,12 +60,9 @@ class MainActivity : ComponentActivity() {
                     }
 
                     composable(NavRoutes.Signup.route) {
-                        val authViewModel: AuthViewModel = viewModel(factory = authFactory)
-
                         SignupScreen(
                             authViewModel = authViewModel,
                             onSignupSuccess = {
-                                isLoggedIn = true
                                 navController.navigate(NavRoutes.Main.route) {
                                     popUpTo(NavRoutes.Signup.route) { inclusive = true }
                                 }
@@ -76,7 +74,7 @@ class MainActivity : ComponentActivity() {
                     }
 
                     composable(NavRoutes.Main.route) {
-                        MainScreen(navController = navController)
+                        MainScreen(navController = navController, authViewModel = authViewModel)
                     }
                 }
             }

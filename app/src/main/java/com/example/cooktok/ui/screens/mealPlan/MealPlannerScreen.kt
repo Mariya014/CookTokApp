@@ -1,255 +1,376 @@
 package com.example.cooktok.ui.screens.mealPlan
 
-import android.os.Build
-import androidx.annotation.RequiresApi
+import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.RestaurantMenu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavController
-import com.example.cooktok.data.local.AppDatabase
+import androidx.compose.ui.window.DialogProperties
 import com.example.cooktok.data.local.model.MealPlan
-import com.example.cooktok.data.repository.MealPlanRepository
-import com.example.cooktok.ui.screens.recipe.RecipeViewModel
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-
-@RequiresApi(Build.VERSION_CODES.O)
+import com.example.cooktok.data.local.model.Recipe
+import java.text.SimpleDateFormat
+import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MealPlanScreen(
-    navController: NavController,
-    userId: Int = 1, // Default user ID, replace with actual user management
-    mealViewModel: MealPlanViewModel = hiltViewModel(),
+fun MealPlannerScreen(
+    mealPlanViewModel: MealPlanViewModel,
+    recipes: List<Recipe>,
+    userId: Int
+) {
+    val context = LocalContext.current
+    val dbFormat = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
+    val uiFormat = remember { SimpleDateFormat("EEE, MMM d", Locale.getDefault()) }
+    val weekDates = remember { currentWeekDates() }
+    var dialogFor by remember { mutableStateOf<DialogTarget?>(null) }
 
-    ) {
-    val currentDate = LocalDate.now()
-    val weekDates = remember { getWeekDates(currentDate) }
-    var selectedDate by remember { mutableStateOf(currentDate) }
-
-
-    // Get meal plans for the week
-    val mealPlans by mealViewModel.getAllMealPlans(userId).observeAsState(initial = emptyList())
+    // Color scheme
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val onSurfaceColor = MaterialTheme.colorScheme.onSurface
+    val outlineColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Meal Planner") },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
+            CenterAlignedTopAppBar(
+                title = {
+                    Text(
+                        "Weekly Meal Plan",
+                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
+                    )
                 },
-                actions = {
-                    IconButton(onClick = { /* Open shopping list */ }) {
-                        Icon(Icons.Default.ShoppingCart, contentDescription = "Shopping List")
-                        Badge(modifier = Modifier.offset((-8).dp, 8.dp)) {
-                            Text("0") // Update with actual count
-                        }
-                    }
-                }
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = primaryColor,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White
+                )
             )
-        },
-//        bottomBar = { BottomNavigationBar(navController) }
+        }
     ) { padding ->
         Column(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Week selector
-            WeekSelector(weekDates, selectedDate) { date ->
-                selectedDate = date
-            }
+            // Week navigation header
+            WeekNavigationHeader(weekDates, uiFormat)
 
-            // Daily meal plan
-            DailyMealPlan(
-                date = selectedDate,
-                mealPlans = mealPlans.filter { it.date == selectedDate.format(DateTimeFormatter.ISO_DATE) },
-                onAddMeal = { mealType ->
-                    // Navigate to recipe selection
-                    navController.navigate("recipeSelection/$userId/${selectedDate.format(DateTimeFormatter.ISO_DATE)}/$mealType")
-                },
-                onMealClick = { mealPlan ->
-                    // Navigate to recipe details
-                    navController.navigate("recipeDetails/${mealPlan.recipeId}")
+            // Days list
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                items(weekDates) { dateObj ->
+                    val dateKey = dbFormat.format(dateObj)
+                    val uiLabel = uiFormat.format(dateObj)
+                    val plansForDate by mealPlanViewModel.getMealPlansForDate(dateKey, userId)
+                        .observeAsState(emptyList())
+                    val byMeal = remember(plansForDate) { plansForDate.associateBy { it.mealType } }
+
+                    DayCard(
+                        dateLabel = uiLabel,
+                        breakfastTitle = recipeTitle(byMeal["Breakfast"]?.recipeId, recipes),
+                        lunchTitle = recipeTitle(byMeal["Lunch"]?.recipeId, recipes),
+                        dinnerTitle = recipeTitle(byMeal["Dinner"]?.recipeId, recipes),
+                        onBreakfastClick = { dialogFor = DialogTarget(dateKey, "Breakfast") },
+                        onLunchClick = { dialogFor = DialogTarget(dateKey, "Lunch") },
+                        onDinnerClick = { dialogFor = DialogTarget(dateKey, "Dinner") },
+                        primaryColor = primaryColor,
+                        surfaceColor = surfaceColor,
+                        onSurfaceColor = onSurfaceColor
+                    )
                 }
-            )
+            }
         }
+    }
+
+    // Recipe selection dialog
+    dialogFor?.let { target ->
+        RecipeSelectionDialog(
+            target = target,
+            recipes = recipes,
+            onDismiss = { dialogFor = null },
+            onRecipeSelected = { recipe ->
+                mealPlanViewModel.insertMealPlan(
+                    MealPlan(
+                        id = 0,
+                        userId = userId,
+                        date = target.dateKey,
+                        mealType = target.mealType,
+                        recipeId = recipe.id
+                    )
+                )
+                Toast.makeText(
+                    context,
+                    "${recipe.title} added to ${target.mealType}",
+                    Toast.LENGTH_SHORT
+                ).show()
+                dialogFor = null
+            }
+        )
     }
 }
 
-@RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun WeekSelector(
-    weekDates: List<LocalDate>,
-    selectedDate: LocalDate,
-    onDateSelected: (LocalDate) -> Unit
-) {
+private fun WeekNavigationHeader(weekDates: List<Date>, dateFormat: SimpleDateFormat) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+            .background(
+                color = MaterialTheme.colorScheme.primaryContainer,
+                shape = MaterialTheme.shapes.medium
+            )
+            .padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly
     ) {
         weekDates.forEach { date ->
-            val isSelected = date == selectedDate
             Column(
-                modifier = Modifier
-                    .clickable { onDateSelected(date) }
-                    .padding(8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(4.dp)
             ) {
                 Text(
-                    text = date.dayOfWeek.toString().take(3),
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground
+                    text = dateFormat.format(date).take(3), // Short day name
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
                 Text(
-                    text = date.dayOfMonth.toString(),
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground
+                    text = SimpleDateFormat("d", Locale.getDefault()).format(date),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }
         }
     }
 }
 
-@RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun DailyMealPlan(
-    date: LocalDate,
-    mealPlans: List<MealPlan>,
-    onAddMeal: (String) -> Unit,
-    onMealClick: (MealPlan) -> Unit
+private fun DayCard(
+    dateLabel: String,
+    breakfastTitle: String?,
+    lunchTitle: String?,
+    dinnerTitle: String?,
+    onBreakfastClick: () -> Unit,
+    onLunchClick: () -> Unit,
+    onDinnerClick: () -> Unit,
+    primaryColor: Color,
+    surfaceColor: Color,
+    onSurfaceColor: Color
 ) {
-    val mealTypes = listOf("Breakfast", "Lunch", "Dinner")
-
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = surfaceColor)
     ) {
-        item {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             Text(
-                text = date.format(DateTimeFormatter.ofPattern("EEEE, MMMM d")),
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 16.dp)
+                text = dateLabel,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = primaryColor,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                MealTimeCard(
+                    title = breakfastTitle ?: "Add Breakfast",
+                    isAssigned = breakfastTitle != null,
+                    onClick = onBreakfastClick,
+                    modifier = Modifier.weight(1f),
+                    primaryColor = primaryColor
+                )
+                MealTimeCard(
+                    title = lunchTitle ?: "Add Lunch",
+                    isAssigned = lunchTitle != null,
+                    onClick = onLunchClick,
+                    modifier = Modifier.weight(1f),
+                    primaryColor = primaryColor
+                )
+                MealTimeCard(
+                    title = dinnerTitle ?: "Add Dinner",
+                    isAssigned = dinnerTitle != null,
+                    onClick = onDinnerClick,
+                    modifier = Modifier.weight(1f),
+                    primaryColor = primaryColor
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MealTimeCard(
+    title: String,
+    isAssigned: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    primaryColor: Color
+) {
+    val containerColor = if (isAssigned) primaryColor.copy(alpha = 0.1f)
+    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    val textColor = if (isAssigned) primaryColor
+    else MaterialTheme.colorScheme.onSurfaceVariant
+
+    Card(
+        modifier = modifier
+            .height(100.dp)
+            .clickable { onClick() },
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(
+            containerColor = containerColor,
+            contentColor = textColor
+        ),
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (isAssigned) primaryColor
+            else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+        ),
+        elevation = CardDefaults.cardElevation(if (isAssigned) 4.dp else 0.dp)
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (isAssigned) FontWeight.SemiBold else FontWeight.Normal,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(8.dp)
             )
         }
+    }
+}
 
-        items(mealTypes) { mealType ->
-            val mealsForType = mealPlans.filter { it.mealType.equals(mealType, ignoreCase = true) }
-
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                shape = RoundedCornerShape(8.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+@Composable
+private fun RecipeSelectionDialog(
+    target: DialogTarget,
+    recipes: List<Recipe>,
+    onDismiss: () -> Unit,
+    onRecipeSelected: (Recipe) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                "Select recipe for ${target.mealType}",
+                style = MaterialTheme.typography.titleLarge
+            )
+        },
+        text = {
+            if (recipes.isEmpty()) {
+                Text(
+                    "No recipes available. Please add recipes first.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(vertical = 16.dp)
                 )
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
+            } else {
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 400.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = mealType,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold
+                    items(recipes) { recipe ->
+                        RecipeSelectionItem(
+                            recipe = recipe,
+                            onClick = { onRecipeSelected(recipe) }
                         )
-
-                        IconButton(
-                            onClick = { onAddMeal(mealType) },
-                            modifier = Modifier.size(24.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = "Add $mealType"
-                            )
-                        }
-                    }
-
-                    if (mealsForType.isEmpty()) {
-                        Text(
-                            text = "No $mealType planned",
-                            modifier = Modifier.padding(top = 8.dp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    } else {
-                        Column(modifier = Modifier.padding(top = 8.dp)) {
-                            mealsForType.forEach { mealPlan ->
-                                MealItem(mealPlan, onMealClick)
-                            }
-                        }
                     }
                 }
             }
-        }
-    }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        },
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    )
 }
 
 @Composable
-fun MealItem(mealPlan: MealPlan, onClick: (MealPlan) -> Unit) {
-    // Replace with actual recipe name fetched from repository
-    val recipeName = "Recipe #${mealPlan.recipeId}"
-
+private fun RecipeSelectionItem(recipe: Recipe, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp)
-            .clickable { onClick(mealPlan) },
-        shape = RoundedCornerShape(4.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
+            .clickable(onClick = onClick),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Placeholder for recipe image
+            // Recipe image placeholder
             Box(
                 modifier = Modifier
-                    .size(40.dp)
-                    .background(Color.LightGray, RoundedCornerShape(4.dp))
-            )
+                    .size(48.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                        shape = MaterialTheme.shapes.small
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.RestaurantMenu,
+                    contentDescription = "Recipe",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
 
             Spacer(modifier = Modifier.width(12.dp))
 
-            Text(
-                text = recipeName,
-                modifier = Modifier.weight(1f)
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = recipe.title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "${recipe.cookingTime} min • ${recipe.difficulty}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
 
-@RequiresApi(Build.VERSION_CODES.O)
-private fun getWeekDates(date: LocalDate): List<LocalDate> {
-    val startOfWeek = date.minusDays(date.dayOfWeek.value.toLong() - 1)
-    return (0 until 7).map { startOfWeek.plusDays(it.toLong()) }
+private data class DialogTarget(val dateKey: String, val mealType: String)
+
+private fun currentWeekDates(): List<Date> {
+    val cal = Calendar.getInstance()
+    cal.firstDayOfWeek = Calendar.MONDAY
+    cal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+    return (0..6).map { offset ->
+        (cal.clone() as Calendar).apply { add(Calendar.DAY_OF_MONTH, offset) }.time
+    }
+}
+
+private fun recipeTitle(recipeId: Int?, recipes: List<Recipe>): String? {
+    return recipeId?.let { id -> recipes.firstOrNull { it.id == id }?.title }
 }

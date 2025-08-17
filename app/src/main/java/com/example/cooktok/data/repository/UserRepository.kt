@@ -4,13 +4,26 @@ import com.example.cooktok.data.local.dao.UserDao
 import com.example.cooktok.data.local.model.User
 
 class UserRepository(private val userDao: UserDao) {
+    private var currentUser: User? = null
 
     suspend fun signup(user: User): Long {
-        return userDao.insertUser(user)
+        val id = userDao.insertUser(user)
+        if (id > 0) {
+            currentUser = user.copy(id = id.toInt())
+        }
+        return id
     }
 
     suspend fun login(email: String, password: String): User? {
-        return userDao.login(email, password)
+        return userDao.login(email, password)?.also {
+            currentUser = it
+        }
+    }
+
+    suspend fun getCurrentUser(): User? {
+        return currentUser ?: userDao.getUserById(currentUser?.id ?: -1)?.also {
+            currentUser = it
+        }
     }
 
     suspend fun getUserById(id: Int): User? {

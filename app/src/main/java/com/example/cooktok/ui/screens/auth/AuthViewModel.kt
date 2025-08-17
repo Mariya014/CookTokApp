@@ -19,6 +19,14 @@ class AuthViewModel(private val userRepository: UserRepository) : ViewModel() {
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+
+    init {
+        viewModelScope.launch {
+            val user = userRepository.getCurrentUser()
+            _currentUser.value = user
+        }
+    }
+
     fun login(email: String, password: String) {
         if (email.isBlank() || password.isBlank()) {
             _errorMessage.value = "Please enter both email and password"
