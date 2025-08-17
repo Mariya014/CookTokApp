@@ -7,19 +7,22 @@ import androidx.room.RoomDatabase
 import com.example.cooktok.data.local.dao.CuisineDao
 import com.example.cooktok.data.local.dao.MealPlanDao
 import com.example.cooktok.data.local.dao.RecipeDao
+import com.example.cooktok.data.local.dao.SavedRecipeDao
 import com.example.cooktok.data.local.dao.UserDao
 import com.example.cooktok.data.local.model.Cuisine
 import com.example.cooktok.data.local.model.MealPlan
 import com.example.cooktok.data.local.model.Recipe
+import com.example.cooktok.data.local.model.SavedRecipe
 import com.example.cooktok.data.local.model.User
 
-@Database(entities = [User::class, Cuisine::class, Recipe::class, MealPlan::class], version =4)
+@Database(entities = [User::class, Cuisine::class, Recipe::class, MealPlan::class, SavedRecipe::class], version =5)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun userDao(): UserDao
     abstract fun cuisineDao(): CuisineDao
     abstract fun recipeDao(): RecipeDao
     abstract fun mealPlanDao(): MealPlanDao
+    abstract fun savedRecipeDao(): SavedRecipeDao
 
     companion object {
         @Volatile

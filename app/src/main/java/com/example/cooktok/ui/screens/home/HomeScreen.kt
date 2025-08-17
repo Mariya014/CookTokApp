@@ -50,9 +50,9 @@ fun HomeScreen(
     recipeViewModel: RecipeViewModel = hiltViewModel(),
     cuisineViewModel: CuisineViewModel = hiltViewModel()
 ) {
-//    LaunchedEffect(Unit) {
-//        cuisineViewModel.loadCuisines()
-//    }
+    LaunchedEffect(Unit) {
+        cuisineViewModel.loadCuisines()
+    }
 
     val recipes by recipeViewModel.recipes.collectAsState(initial = emptyList())
     val cuisines by cuisineViewModel.cuisines.collectAsState(initial = emptyList())
