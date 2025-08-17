@@ -27,6 +27,7 @@ import com.example.cooktok.ui.screens.home.HomeScreen
 import com.example.cooktok.ui.screens.mealPlan.MealPlanViewModel
 import com.example.cooktok.ui.screens.mealPlan.MealPlanViewModelFactory
 import com.example.cooktok.ui.screens.mealPlan.MealPlannerScreen
+import com.example.cooktok.ui.screens.profile.ProfileScreen
 import com.example.cooktok.ui.screens.recipe.AddRecipeScreen
 import com.example.cooktok.ui.screens.recipe.RecipeViewModel
 import com.example.cooktok.ui.screens.recipe.RecipeViewModelFactory
@@ -156,7 +157,28 @@ fun MainScreen(navController: NavHostController, authViewModel: AuthViewModel) {
             }
 
             composable(BottomNavItem.Profile.route) {
-                Text("👤 Profile Screen")
+                // Get required dependencies
+                val context = LocalContext.current
+                val db = remember { AppDatabase.getDatabase(context) }
+
+                // Initialize repositories
+                val recipeRepository = remember { RecipeRepository(db.recipeDao()) }
+                val savedRecipeRepository = remember { SavedRecipeRepository(db.savedRecipeDao()) }
+
+                // Initialize ViewModels
+                val recipeViewModel: RecipeViewModel = viewModel(
+                    factory = RecipeViewModelFactory(recipeRepository)
+                )
+                val savedRecipeViewModel: SavedRecipeViewModel = viewModel(
+                    factory = SavedRecipeViewModelFactory(savedRecipeRepository)
+                )
+
+                ProfileScreen(
+                    navController = bottomNavController,
+                    authViewModel = authViewModel,
+                    recipeViewModel = recipeViewModel,
+                    savedRecipeViewModel = savedRecipeViewModel
+                )
             }
 
             composable("cuisine_screen") {

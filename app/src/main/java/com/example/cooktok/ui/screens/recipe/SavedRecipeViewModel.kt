@@ -27,9 +27,13 @@ class SavedRecipeViewModel(private val repository: SavedRecipeRepository) : View
         }
     }
 
-    fun deleteRecipe(savedRecipe: SavedRecipe) {
+    fun unsaveRecipe(userId: Int, recipeId: Int) {
         viewModelScope.launch {
-            repository.deleteSavedRecipe(savedRecipe)
+            try {
+                repository.unsaveRecipe(userId, recipeId)
+                loadSavedRecipes(userId)
+            } catch (e: Exception) {
+            }
         }
     }
 }

@@ -205,11 +205,9 @@ fun HomeScreen(
                     onSaveClick = {
                         currentUser?.let { user ->
                             if (isSaved) {
-                                savedRecipeViewModel.deleteRecipe(
-                                    SavedRecipe(
-                                        userId = user.id,
-                                        recipeId = recipe.id
-                                    )
+                                savedRecipeViewModel.unsaveRecipe(
+                                    userId = user.id,
+                                    recipeId = recipe.id
                                 )
                             } else {
                                 savedRecipeViewModel.saveRecipe(user.id, recipe.id)
@@ -232,11 +230,9 @@ fun HomeScreen(
                 onSaveClick = {
                     currentUser?.let { user ->
                         if (isRecipeSaved) {
-                            savedRecipeViewModel.deleteRecipe(
-                                SavedRecipe(
-                                    userId = user.id,
-                                    recipeId = selectedRecipe!!.id
-                                )
+                            savedRecipeViewModel.unsaveRecipe(
+                                userId = user.id,
+                                recipeId = selectedRecipe!!.id
                             )
                         } else {
                             savedRecipeViewModel.saveRecipe(user.id, selectedRecipe!!.id)

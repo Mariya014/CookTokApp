@@ -11,6 +11,9 @@ class RecipeViewModel(private val repository: RecipeRepository) : ViewModel() {
     private val _recipes = MutableStateFlow<List<Recipe>>(emptyList())
     val recipes: StateFlow<List<Recipe>> = _recipes.asStateFlow()
 
+    private val _userRecipes = MutableStateFlow<List<Recipe>>(emptyList())
+    val userRecipes: StateFlow<List<Recipe>> = _userRecipes.asStateFlow()
+
     // Operation states
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -37,6 +40,14 @@ class RecipeViewModel(private val repository: RecipeRepository) : ViewModel() {
         }
     }
 
+    fun loadUserRecipes(userId: Int) {
+        viewModelScope.launch {
+            repository.getRecipesByUser(userId)
+                .collect { recipes ->
+                    _userRecipes.value = recipes
+                }
+        }
+    }
     fun addRecipe(recipe: Recipe) {
         viewModelScope.launch {
             _isLoading.value = true
