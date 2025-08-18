@@ -1,6 +1,6 @@
 # Cooktok App
 
-Cooktok is a Android recipe app built with Jetpack Compose and Room Database.
+Cooktok is a Android recipe app built with kotlin and java
 It lets users upload, browse, save, and plan recipes.
 
 ## Features
